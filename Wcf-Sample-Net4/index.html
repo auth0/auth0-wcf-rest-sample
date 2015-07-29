@@ -16,7 +16,7 @@
     <script src="//code.jquery.com/jquery-1.10.1.min.js"></script>
     <script src="//cdn.jsdelivr.net/jquery.cookie/1.4.0/jquery.cookie.min.js"></script>
     
-    <script src="//cdn.auth0.com/w2/auth0-widget-5.2.min.js"></script>
+    <script src="//cdn.auth0.com/w2/auth0-widget-5.min.js"></script>
 
     <script type="text/javascript">
         $.cookie.json = true;
@@ -39,12 +39,13 @@
         });
 
         // the response from Auth0 will come in the window.location.hash and we'll parse it here and store it in cookies
-        widget.parseHash(window.location.hash, function (profile, id_token, access_token, state) {
-            $.cookie("profile", profile);
-            $.cookie("id_token", id_token);
+        var parsedHash = widget.parseHash(window.location.hash);
+        if (parsedHash && parsedHash.id_token) {
+            $.cookie("profile", parsedHash.profile);
+            $.cookie("id_token", parsedHash.id_token);
             
             location.href = "/";
-        });
+        };
 
         $(function () {
             var profile = $.cookie("profile");
