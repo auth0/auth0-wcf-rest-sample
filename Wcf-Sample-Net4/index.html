@@ -5,7 +5,7 @@
 </head>
 <body>
 
-    <button onclick="widget.show()">Login</button>
+    <button class="login">Login</button>
     <div class="protected" style="display: none">
         <button onclick="logout()">Logout</button>
         <div class="user"></div>
@@ -13,67 +13,76 @@
         <div class="result"></div>
     </div>
 
-    <script src="//code.jquery.com/jquery-1.10.1.min.js"></script>
-    <script src="//cdn.jsdelivr.net/jquery.cookie/1.4.0/jquery.cookie.min.js"></script>
-    
-    <script src="//cdn.auth0.com/w2/auth0-widget-5.min.js"></script>
-
+    <script src="//code.jquery.com/jquery-1.12.4.min.js"></script>    
+    <script src="//cdn.auth0.com/js/lock/10.6/lock.min.js"></script>
+   
     <script type="text/javascript">
-        $.cookie.json = true;
         // every request send to a service will have the Authorization header with a token
         $.ajaxSetup({
-            'beforeSend': function (xhr) {
-                if ($.cookie('id_token')) {
+            beforeSend: function (xhr) {
+                console.log("sending with " + localStorage.getItem('id_token'));
+                if (localStorage.getItem('id_token')) {
                     xhr.setRequestHeader('Authorization',
-                          'Bearer ' + $.cookie('id_token'));
+                          'Bearer ' + localStorage.getItem('id_token'));
                 }
             }
         });
 
         // TODO: change with your keys
-        var widget = new Auth0Widget({
-            domain: 'contoso.auth0.com',
-            clientID: 'rKSuDHAJAM299rketKLtoykPJEjUplqP',
-            callbackURL: 'http://localhost:49732/',
-            callbackOnLocationHash: true
+        var lock = new Auth0Lock('rKSuDHAJAM299rketKLtoykPJEjUplqP', 'contoso.auth0.com');
+
+        $('.login').click(function (e) {
+            e.preventDefault();
+            lock.show({
+                auth: {
+                    redirectUrl: 'http://localhost:49732/'
+                }
+            });
         });
 
-        // the response from Auth0 will come in the window.location.hash and we'll parse it here and store it in cookies
-        var parsedHash = widget.parseHash(window.location.hash);
-        if (parsedHash && parsedHash.id_token) {
-            $.cookie("profile", parsedHash.profile);
-            $.cookie("id_token", parsedHash.id_token);
-            
-            location.href = "/";
-        };
+        lock.on("authenticated", function (authResult) {
+            // Use the token in authResult to getProfile() and save it to localStorage
+            lock.getProfile(authResult.idToken, function (error, profile) {
+                if (error) {
+                    // Handle error
+                    return;
+                }
+
+                localStorage.setItem('id_token', authResult.idToken);
+                localStorage.setItem('profile', JSON.stringify(profile));
+                showProfile(profile); 
+            });
+        });
 
         $(function () {
-            var profile = $.cookie("profile");
-            console.log(profile);
-
-            // user logged in?
+            var profile = localStorage.getItem('profile');
             if (profile) {
-                $('.protected').show();
-                $('.user').html('Welcome ' + profile.name);
-                $.ajax({
-                    url: '/WcfRestService.svc/DoWork',
-                    type: 'GET',
-                    dataType: 'json',
-                  })
-                  .done(function (json) {
-                      $('.result').html(JSON.stringify(json));
-                  })
-                  .fail(function (jqxhr, textStatus, error) {
-                      // wrong token probably
-                      var err = textStatus + ", " + error;
-                      console.log("Request Failed: " + error);
-                  });
+                showProfile(JSON.parse(profile));
             }
         });
 
+        function showProfile(profile) {
+            $('.protected').show();
+            $('.login').hide();
+            $('.user').html('Welcome ' + profile.name);
+            $.ajax({
+                url: '/WcfRestService.svc/DoWork',
+                type: 'GET',
+                dataType: 'json',
+            })
+              .done(function (json) {
+                  $('.result').html(JSON.stringify(json));
+              })
+              .fail(function (jqxhr, textStatus, error) {
+                  // wrong token probably
+                  var err = textStatus + ", " + error;
+                  console.log("Request Failed: " + error);
+              });
+        }
+
         function logout() {
-            $.removeCookie("profile");
-            $.removeCookie("id_token");
+            localStorage.removeItem('profile');
+            localStorage.removeItem('id_token');
 
             location.href = "/";
         }
